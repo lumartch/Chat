@@ -7,6 +7,7 @@ package main
 
 import (
 	"container/list"
+	"encoding/gob"
 	"fmt"
 	"net"
 )
@@ -14,6 +15,12 @@ import (
 // Struct para los procesos
 type Usuario struct {
 	Nickname string
+	Opcion   int64
+	Mensaje  string
+}
+
+func handlerUsuarios() {
+
 }
 
 // Función de servidor que estará escuchando para cuando se conecte un Cliente en el puerto :9999
@@ -25,11 +32,30 @@ func server(listaUsuarios *list.List) {
 	}
 	for {
 		c, err := s.Accept()
-		if err != nil || listaUsuarios.Front() == nil {
+		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Println(c)
+		var usr Usuario
+		err = gob.NewDecoder(c).Decode(&usr)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		/// Switch para los handlers de acciones
+		switch usr.Opcion {
+		case 0:
+			fmt.Println("Usuario nuevo")
+		case 1:
+			fmt.Println("Mensaje")
+		case 2:
+			fmt.Println("Archivo")
+		case 3:
+			fmt.Println("Reespaldo de mensajes.")
+		}
+		c.Close()
+		// Envía los mensajes a los demas usuarios
+		//go handlerUsuarios()
 		/*listaUsuarios.Remove(listaUsuarios.Front())
 		go handleCliente(c, p, listaUsuarios)*/
 	}
