@@ -14,6 +14,9 @@ import (
 
 const BUFFER_SIZE = 1024
 
+// Inicialización de la lista
+var listaUsuarios list.List
+
 func serverArchivo() {
 
 }
@@ -22,7 +25,7 @@ func handleArchivo(c net.Conn) {
 
 }
 
-func existeNickname(listaUsuarios *list.List, nickname string) bool {
+func existeNickname(nickname string) bool {
 	var existe bool = false
 	for e := listaUsuarios.Front(); e != nil; e = e.Next() {
 		if e.Value == nickname {
@@ -31,6 +34,15 @@ func existeNickname(listaUsuarios *list.List, nickname string) bool {
 		}
 	}
 	return existe
+}
+
+func eliminarNickname(nickname string) {
+	for e := listaUsuarios.Front(); e != nil; e = e.Next() {
+		if e.Value == nickname {
+			listaUsuarios.Remove(e)
+			break
+		}
+	}
 }
 
 func handleUsuario(c net.Conn, nickname string) {
@@ -45,60 +57,61 @@ func handleUsuario(c net.Conn, nickname string) {
 		case 1:
 			var msg string
 			err = gob.NewDecoder(c).Decode(&msg)
-			fmt.Println(nickname, ": ", msg)
+			fmt.Println(nickname, ":", msg)
 		case 2:
 			fmt.Println("Archivo")
 		case 3:
 			fmt.Println("Reespaldo de mensajes.")
 		case 0:
-			fmt.Println("Desconexión...")
+			fmt.Println(nickname, " se desconectó.")
 		}
 	}
+	eliminarNickname(nickname)
 	c.Close()
 }
 
 // Función de servidor que estará escuchando para cuando se conecte un Cliente en el puerto :9999
-func server(listaUsuarios *list.List) {
+func server() {
 	s, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	for {
+		// Acepta el request del usuario
 		c, err := s.Accept()
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		///
+		// Captura el nickname ingresado por el usuario
 		var nickname string
 		err = gob.NewDecoder(c).Decode(&nickname)
-		// Verifica si es un usuario nuevo, en caso de serlo y existir en el servidor manda error
-		if !existeNickname(listaUsuarios, nickname) {
-			listaUsuarios.PushBack(nickname)
-			fmt.Println("Se conectó: ", nickname)
-			var msg string = "Conexion"
-			err = gob.NewEncoder(c).Encode(&msg)
-		} else {
-			var msg string = "Error"
-			err = gob.NewEncoder(c).Encode(&msg)
-			err = nil
-		}
 		// Verifica que el paquete recibido no tenga errores
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		// Crea una instancia hilo para el correspondiente usuario
-		go handleUsuario(c, nickname)
+		// Verifica si es un usuario nuevo, en caso de serlo y existir en el servidor manda error
+		if !existeNickname(nickname) {
+			// Ingresa el nickname a la lista
+			listaUsuarios.PushBack(nickname)
+			fmt.Println("Se conectó: ", nickname)
+			var msg string = "Conexion"
+			err = gob.NewEncoder(c).Encode(&msg)
+			// Crea una instancia hilo para el correspondiente usuario
+			go handleUsuario(c, nickname)
+		} else {
+			var msg string = "Error"
+			err = gob.NewEncoder(c).Encode(&msg)
+			c.Close()
+		}
 	}
 }
 
 func main() {
-	// Inicialización de la lista
-	var listaUsuarios list.List
-	//
-	go server(&listaUsuarios)
+	// Lanza hilo para el servidor
+	go server()
 	// Condicionante de paro
 	var input string
 	fmt.Scanln(&input)

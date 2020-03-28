@@ -29,7 +29,7 @@ func handleMensajes(c net.Conn) {
 	}
 }
 
-func menu(c net.Conn) {
+func menu(c net.Conn, nickname string) {
 	go handleMensajes(c)
 	var opc int64
 	opc = 1
@@ -93,30 +93,38 @@ func leerString() string {
 }
 
 func main() {
-	var nickname string
-	// Conexión inicial entre cliente servidor
-	c, err := net.Dial("tcp", ":8080")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
 	// Crea el bucle para envíar el Nickname del usuario
 	for {
-		fmt.Print("Nickname: ")
-		nickname = leerString()
-		fmt.Print("Conectando con el servidor... ")
-		err = gob.NewEncoder(c).Encode(&nickname)
+		var nickname string
+		// Conexión inicial entre cliente servidor
+		c, err := net.Dial("tcp", ":8080")
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		// El usuario ingresa el Nickname
+		fmt.Print("Nickname: ")
+		nickname = leerString()
+		fmt.Print("Conectando con el servidor... ")
+		// Se envía el nickname
+		err = gob.NewEncoder(c).Encode(&nickname)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		// Se verifica que el nickname no esté en uso
 		var msg string
 		err = gob.NewDecoder(c).Decode(&msg)
+		//
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 		if msg == "Error" {
 			fmt.Print("Nickname en uso, intente con uno nuevo.\n\n")
 		} else {
+			menu(c, nickname)
 			break
 		}
 	}
-	menu(c)
 }
