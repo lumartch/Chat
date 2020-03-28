@@ -19,26 +19,44 @@ func enviarArchivo(fileName string) {
 
 }
 
-func handleMensajes(c net.Conn) {
-	var msg string
-	err := gob.NewDecoder(c).Decode(&msg)
+func handleMensajesNuevos(c net.Conn) {
+	var i int64 = 0
+	for {
+		var msg string
+		err := gob.NewDecoder(c).Decode(&msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Print("\033[", (4 + i), ";32H", msg)
+		i += 1
+		fmt.Print("\033[9;5H")
+	}
+}
+
+func imprimirTodoChat(c net.Conn) {
+	var msgs []string
+	err := gob.NewDecoder(c).Decode(&msgs)
 	if err != nil {
 		fmt.Println(err)
-	} else {
-		fmt.Println(msg)
+		return
+	}
+	for i, msg := range msgs {
+		fmt.Print("\033[", (4 + i), ";32H", msg)
 	}
 }
 
 func menu(c net.Conn, nickname string) {
-	go handleMensajes(c)
-	var opc int64
-	opc = 1
+	fmt.Print("\033[H\033[2J")
+	// Hilo para recibir mensajes del servidor o de otros usuarios
+	go handleMensajesNuevos(c)
+	// Ciclo para las opciones de Usuario
+	var opc int64 = 1
 	for opc != 0 {
 		// System "Clear"
 		fmt.Print("\033[H\033[2J")
-		fmt.Println("+--------------------------+")
-		fmt.Println("|         WutsClient       |")
-		fmt.Println("+--------------------------+")
+		fmt.Println("+--------------------------+-----------------------------------------------------------------+")
+		fmt.Println("|         WutsClient       |                       Chat                                      |")
+		fmt.Println("+--------------------------+-----------------------------------------------------------------+")
 		fmt.Println("| 1.- Envíar mensaje.      |")
 		fmt.Println("| 2.- Enviar archivo.      |")
 		fmt.Println("| 3.- Mostrar chat.        |")
@@ -55,15 +73,18 @@ func menu(c net.Conn, nickname string) {
 				fmt.Println(err)
 			}
 			var msg string
-			fmt.Print("\033[12;1H Tu:")
+			fmt.Print("\033[12;1HTu: ")
 			msg = leerString()
 			err = gob.NewEncoder(c).Encode(&msg)
+			//imprimirTodoChat(c)
 		case 2:
-			fmt.Print("\033[12;1H Dirección del archivo:")
 			err := gob.NewEncoder(c).Encode(&opc)
 			if err != nil {
 				fmt.Println(err)
 			}
+			/*var file string
+			fmt.Print("\033[12;1H Dirección del archivo: ")
+			file = leerString()*/
 		case 3:
 			fmt.Print("\033[11;1H Mensajes.")
 			err := gob.NewEncoder(c).Encode(&opc)
@@ -71,17 +92,15 @@ func menu(c net.Conn, nickname string) {
 				fmt.Println(err)
 			}
 		case 0:
-			fmt.Println("+-------------------------------------+")
-			fmt.Println("| Gracias por usar el software.       |")
-			fmt.Println("+-------------------------------------+")
+			fmt.Println("+--------------------------+")
+			fmt.Println("| Vuelva pronto.   :B      |")
+			fmt.Println("+--------------------------+")
 			err := gob.NewEncoder(c).Encode(&opc)
 			if err != nil {
 				fmt.Println(err)
 			}
 		default:
-			fmt.Println("+-------------------------------------+")
-			fmt.Println("| Opción inválida.                    |")
-			fmt.Println("+-------------------------------------+")
+			opc = 20
 		}
 	}
 }
@@ -97,7 +116,7 @@ func main() {
 	for {
 		var nickname string
 		// Conexión inicial entre cliente servidor
-		c, err := net.Dial("tcp", ":8080")
+		c, err := net.Dial("tcp", "192.168.100.4:8080")
 		if err != nil {
 			fmt.Println(err)
 			return
