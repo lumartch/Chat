@@ -11,37 +11,26 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 )
 
 const BUFFER_SIZE = 1024
-
-// Struct para los procesos
-type Usuario struct {
-	Nickname string
-	Opcion   int64
-	Mensaje  string
-}
 
 func enviarArchivo(fileName string) {
 
 }
 
-func enviarMensaje(usr *Usuario) {
-	// Conexión inicial entre cliente servidor
-	c, err := net.Dial("tcp", ":9999")
+func handleMensajes(c net.Conn) {
+	var msg string
+	err := gob.NewDecoder(c).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
-		return
-	}
-	err = gob.NewEncoder(c).Encode(&usr)
-	if err != nil {
-		fmt.Println(err)
-		return
+	} else {
+		fmt.Println(msg)
 	}
 }
 
-func menu(usr *Usuario) {
+func menu(c net.Conn) {
+	go handleMensajes(c)
 	var opc int64
 	opc = 1
 	for opc != 0 {
@@ -61,18 +50,34 @@ func menu(usr *Usuario) {
 		fmt.Scanln(&opc)
 		switch opc {
 		case 1:
-			fmt.Print("\033[12;1H Tu: ")
-			usr.Mensaje = leerString()
-			usr.Opcion = 1
-			go enviarMensaje(usr)
+			err := gob.NewEncoder(c).Encode(&opc)
+			if err != nil {
+				fmt.Println(err)
+			}
+			var msg string
+			fmt.Print("\033[12;1H Tu:")
+			msg = leerString()
+			err = gob.NewEncoder(c).Encode(&msg)
 		case 2:
 			fmt.Print("\033[12;1H Dirección del archivo:")
+			err := gob.NewEncoder(c).Encode(&opc)
+			if err != nil {
+				fmt.Println(err)
+			}
 		case 3:
 			fmt.Print("\033[11;1H Mensajes.")
+			err := gob.NewEncoder(c).Encode(&opc)
+			if err != nil {
+				fmt.Println(err)
+			}
 		case 0:
 			fmt.Println("+-------------------------------------+")
 			fmt.Println("| Gracias por usar el software.       |")
 			fmt.Println("+-------------------------------------+")
+			err := gob.NewEncoder(c).Encode(&opc)
+			if err != nil {
+				fmt.Println(err)
+			}
 		default:
 			fmt.Println("+-------------------------------------+")
 			fmt.Println("| Opción inválida.                    |")
@@ -89,17 +94,18 @@ func leerString() string {
 
 func main() {
 	var nickname string
+	// Conexión inicial entre cliente servidor
+	c, err := net.Dial("tcp", ":8080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	// Crea el bucle para envíar el Nickname del usuario
 	for {
 		fmt.Print("Nickname: ")
 		nickname = leerString()
 		fmt.Print("Conectando con el servidor... ")
-		// Conexión inicial entre cliente servidor
-		c, err := net.Dial("tcp", ":9999")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		err = gob.NewEncoder(c).Encode(&Usuario{Nickname: nickname, Opcion: 0, Mensaje: ""})
+		err = gob.NewEncoder(c).Encode(&nickname)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -109,11 +115,8 @@ func main() {
 		if msg == "Error" {
 			fmt.Print("Nickname en uso, intente con uno nuevo.\n\n")
 		} else {
-			fmt.Print("¡Conectado!\n")
-			time.Sleep(2 * time.Second)
 			break
 		}
-		c.Close()
 	}
-	menu(&Usuario{Nickname: nickname, Opcion: 0, Mensaje: ""})
+	menu(c)
 }
