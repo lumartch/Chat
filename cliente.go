@@ -11,13 +11,20 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 )
+
+const BUFFER_SIZE = 1024
 
 // Struct para los procesos
 type Usuario struct {
 	Nickname string
 	Opcion   int64
 	Mensaje  string
+}
+
+func enviarArchivo(fileName string) {
+
 }
 
 func enviarMensaje(usr *Usuario) {
@@ -74,21 +81,6 @@ func menu(usr *Usuario) {
 	}
 }
 
-func enviarNickname(usr *Usuario) {
-	// Conexión inicial entre cliente servidor
-	c, err := net.Dial("tcp", ":9999")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	err = gob.NewEncoder(c).Encode(&usr)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	menu(usr)
-}
-
 func leerString() string {
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
@@ -97,8 +89,31 @@ func leerString() string {
 
 func main() {
 	var nickname string
-	fmt.Print("Nickname: ")
-	nickname = leerString()
-	fmt.Println(nickname)
-	enviarNickname(&Usuario{Nickname: nickname, Opcion: 0, Mensaje: ""})
+	for {
+		fmt.Print("Nickname: ")
+		nickname = leerString()
+		fmt.Print("Conectando con el servidor... ")
+		// Conexión inicial entre cliente servidor
+		c, err := net.Dial("tcp", ":9999")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		err = gob.NewEncoder(c).Encode(&Usuario{Nickname: nickname, Opcion: 0, Mensaje: ""})
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		var msg string
+		err = gob.NewDecoder(c).Decode(&msg)
+		if msg == "Error" {
+			fmt.Print("Nickname en uso, intente con uno nuevo.\n\n")
+		} else {
+			fmt.Print("¡Conectado!\n")
+			time.Sleep(2 * time.Second)
+			break
+		}
+		c.Close()
+	}
+	menu(&Usuario{Nickname: nickname, Opcion: 0, Mensaje: ""})
 }
