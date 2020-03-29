@@ -22,6 +22,11 @@ type Archivo struct {
 	Datos  []byte
 }
 
+type Mensaje struct {
+	Opcion  int64
+	Mensaje string
+}
+
 func enviarArchivo(c net.Conn, dirArchivo string, nickname string) {
 	// Abre el archivo si existe en el directorio
 	f, err := os.Open(dirArchivo)
@@ -45,33 +50,20 @@ func enviarArchivo(c net.Conn, dirArchivo string, nickname string) {
 	}
 }
 
-func handleArchivosNuevos(c net.Conn, nickname string) {
-	for {
-		var arc Archivo
-		err := gob.NewDecoder(c).Decode(&arc)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		err = ioutil.WriteFile(nickname+"/"+arc.Nombre, arc.Datos, 0644)
-		if err != nil {
-			fmt.Println("Error creating", arc.Nombre)
-			fmt.Println(err)
-			continue
-		}
-	}
-}
-
 // Cada mensaje que es recibido del servidor se guarda dentro de un Slice
-func handleMensajesNuevos(c net.Conn, msgs ...string) {
+func handleRespuestaServidor(c net.Conn, nickname string, msgs ...string) {
 	for {
-		var msg string
+		var msg Mensaje
 		err := gob.NewDecoder(c).Decode(&msg)
 		if err != nil {
 			fmt.Println(err)
+			continue
 		}
-		msgs = append(msgs, msg)
-		imprimirMensajes(msgs...)
+		if msg.Opcion == 1 {
+			msgs = append(msgs, msg.Mensaje)
+			imprimirMensajes(msgs...)
+		}
+
 	}
 }
 
@@ -140,12 +132,11 @@ func menu(c net.Conn, nickname string) {
 		if errDir != nil {
 			log.Fatal(err)
 		}
-
 	}
+	// Se crea el historial de conversación del usuario
 	msgs := []string{}
 	// Hilo para recibir mensajes del servidor o de otros usuarios
-	go handleMensajesNuevos(c, msgs...)
-	//go handleArchivosNuevos(c, nickname)
+	go handleRespuestaServidor(c, nickname, msgs...)
 	imprimirInterfaz()
 	// Ciclo para las opciones de Usuario
 	var opc int64 = 1
@@ -227,9 +218,9 @@ func main() {
 		}
 		if m == "Error" {
 			fmt.Print("Nickname en uso, intente con uno nuevo.\n\n")
-		} else {
-			menu(c, nickname)
-			break
+			continue
 		}
+		menu(c, nickname)
+		break
 	}
 }

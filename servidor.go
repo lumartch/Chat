@@ -27,24 +27,20 @@ type Archivo struct {
 	Datos  []byte
 }
 
-// Inicialización de la lista
-var listaUsuarios list.List
-var msgs []string
-
-func handleArchivo(arc Archivo) {
-	// Crea una copia del archivo envíado dentro de la carpeta de cada usuario conectado
-	for e := listaUsuarios.Front(); e != nil; e = e.Next() {
-		err := gob.NewEncoder(e.Value.(Usuario).Conexion).Encode(&arc)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
+type Mensaje struct {
+	Opcion  int64
+	Mensaje string
 }
+
+// Inicialización de la lista
+var lUsrMensajes list.List
+var lUsrArchivos list.List
+var msgs []string
 
 // Función para corroborar que el usuario existe
 func existeNickname(nickname string) bool {
 	var existe bool = false
-	for e := listaUsuarios.Front(); e != nil; e = e.Next() {
+	for e := lUsrMensajes.Front(); e != nil; e = e.Next() {
 		if e.Value.(Usuario).Nickname == nickname {
 			existe = true
 			break
@@ -55,18 +51,19 @@ func existeNickname(nickname string) bool {
 
 // Función para eliminar de la lista al usuario
 func eliminarNickname(nickname string) {
-	for e := listaUsuarios.Front(); e != nil; e = e.Next() {
+	for e := lUsrMensajes.Front(); e != nil; e = e.Next() {
 		if e.Value.(Usuario).Nickname == nickname {
-			listaUsuarios.Remove(e)
+			lUsrMensajes.Remove(e)
 			break
 		}
 	}
 }
 
 // Handle para envíar el mensaje a todas las conexiones dentro del servidor
-func handleMensajes(msg string) {
-	for e := listaUsuarios.Front(); e != nil; e = e.Next() {
-		err := gob.NewEncoder(e.Value.(Usuario).Conexion).Encode(&msg)
+func enviarMensaje(msg string) {
+	for e := lUsrMensajes.Front(); e != nil; e = e.Next() {
+		// Envía el mensaje a los usuarios
+		err := gob.NewEncoder(e.Value.(Usuario).Conexion).Encode(&Mensaje{Opcion: 1, Mensaje: msg})
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -75,6 +72,9 @@ func handleMensajes(msg string) {
 }
 
 func handleUsuario(c net.Conn, nickname string) {
+	// Se manda la notificación a los usuarios conectados actualmente
+	enviarMensaje(nickname + " se conectó.")
+	fmt.Println("Se conectó: ", nickname)
 	var opc int = 1
 	for opc != 0 {
 		err := gob.NewDecoder(c).Decode(&opc)
@@ -88,7 +88,7 @@ func handleUsuario(c net.Conn, nickname string) {
 			var msg string
 			err = gob.NewDecoder(c).Decode(&msg)
 			fmt.Println(nickname, ":", msg)
-			handleMensajes(nickname + ": " + msg)
+			enviarMensaje(nickname + ": " + msg)
 		// Si se captura un 2 reenvía el archivo al resto de usuarios
 		case 2:
 			var arc Archivo
@@ -96,22 +96,23 @@ func handleUsuario(c net.Conn, nickname string) {
 			if err != nil {
 				fmt.Println(err)
 			}
-			err = ioutil.WriteFile("files/"+arc.Nombre, arc.Datos, 0644)
+			fileName := arc.Nombre
+			err = ioutil.WriteFile("files/"+fileName, arc.Datos, 0644)
 			if err != nil {
-				fmt.Println("Error creating", arc.Nombre)
+				fmt.Println("Error creating", fileName)
 				fmt.Println(err)
 				return
 			}
-			handleMensajes(nickname + " envío: " + arc.Nombre)
-			//handleArchivo(arc)
+			fmt.Println(nickname, " envío: ", fileName)
+			enviarMensaje(nickname + " envío: " + fileName)
 		// Si captura un se termina la conexión con el usuario
 		case 0:
 			fmt.Println(nickname, " se desconectó.")
+			enviarMensaje(nickname + " se desconectó.")
 		}
 	}
 	c.Close()
 	eliminarNickname(nickname)
-	handleMensajes(nickname + " se desconectó.")
 }
 
 func handleConexion(c net.Conn) {
@@ -125,15 +126,12 @@ func handleConexion(c net.Conn) {
 	// Verifica si es un usuario nuevo, en caso de serlo y existir en el servidor manda error
 	if !existeNickname(nickname) {
 		// Ingresa el usuario a la lista y se imprime dentro del servidor
-		listaUsuarios.PushBack(Usuario{Nickname: nickname, Conexion: c})
-		fmt.Println("Se conectó: ", nickname)
-		// Se manda la notificación a los usuarios conectados actualmente
-		handleMensajes(nickname + " se conectó.")
+		lUsrMensajes.PushBack(Usuario{Nickname: nickname, Conexion: c})
 		// Se notifica a la conexión del usuario actual que se conectó sin errores
 		var msg string = "Conexion"
 		err = gob.NewEncoder(c).Encode(&msg)
 		// Crea una instancia hilo para el correspondiente usuario
-		go handleUsuario(c, nickname)
+		handleUsuario(c, nickname)
 	} else {
 		// Se manda un mensaje de error al usuario y se termina la conexión
 		var msg string = "Error"
@@ -160,6 +158,36 @@ func server() {
 		go handleConexion(c)
 	}
 }
+
+/*func handleArchivo(fileName string) {
+	// Crea una copia del archivo envíado dentro de la carpeta de cada usuario conectado
+	for e := lUsrArchivos.Front(); e != nil; e = e.Next() {
+		// Envía la opción que debería escuchar el hilo del cliente
+		// Lee el archivo desde el origen
+		input, _ := ioutil.ReadFile("files/" + fileName)
+		err := gob.NewEncoder(e.Value.(Usuario).Conexion).Encode(&Archivo{Nombre: fileName, Datos: input})
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+}
+
+func fileServer() {
+	s, err := net.Listen("tcp", "192.168.100.4:9999")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for {
+		// Acepta el request del usuario
+		c, err := s.Accept()
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+	}
+}*/
 
 func main() {
 	// Crea un directorio para el servidor donde almacena todos los archivos
