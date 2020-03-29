@@ -21,75 +21,23 @@ func enviarArchivo(fileName string) {
 }
 
 // Cada mensaje que es recibido del servidor se guarda dentro de un Slice
-func handleMensajesNuevos(c net.Conn, msgs ...string) {
+func handleMensajesNuevos(c net.Conn, msgs *[]string) {
 	for {
 		var msg string
 		err := gob.NewDecoder(c).Decode(&msg)
 		if err != nil {
 			fmt.Println(err)
 		}
-		msgs = append(msgs, msg)
-		imprimirMensajes(msgs...)
-	}
-}
-
-func limpiarChat() {
-	for i := 0; i < 21; i++ {
-		fmt.Print("\033[", (4 + i), ";29H                                                               ")
+		*msgs = append(*msgs, msg)
+		imprimirMensajes(msgs)
 	}
 }
 
 // Imprime todos los mensajes dentro de la interfáz de usuario
-func imprimirMensajes(msgs ...string) {
-	limpiarChat()
-	var i int64 = 20
-	for j := 0; j < len(msgs) && j < 20; j++ {
-		if i >= 0 {
-			if len(msgs[len(msgs)-j-1]) > 60 {
-				msg := []string{}
-				var str string
-				for k, ch := range msgs[len(msgs)-j-1] {
-					if (k+1)%60 == 0 {
-						msg = append(msg, str)
-						str = ""
-						str = str + string(ch)
-					} else {
-						str = str + string(ch)
-					}
-				}
-				msg = append(msg, str)
-				for k := 0; k < len(msg); k++ {
-					if i >= 0 {
-						fmt.Print("\033[", (4 + i), ";32H", msg[len(msg)-k-1])
-						i--
-					}
-				}
-			} else {
-				fmt.Print("\033[", (4 + i), ";32H", msgs[len(msgs)-j-1])
-				i--
-			}
-		}
+func imprimirMensajes(msgs *[]string) {
+	for i, msg := range *msgs {
+		fmt.Print("\033[", (4 + i), ";32H", msg)
 	}
-	/*for _, msg := range msgs {
-		if len(msg) > 60 {
-			var str string
-			for j, ch := range msg {
-				if (j+1)%60 == 0 {
-					fmt.Print("\033[", (4 + i), ";32H", str)
-					str = ""
-					str = str + string(ch)
-					i++
-				} else {
-					str = str + string(ch)
-				}
-			}
-			fmt.Print("\033[", (4 + i), ";32H", str)
-			i++
-		} else {
-			fmt.Print("\033[", (4 + i), ";32H", msg)
-			i++
-		}
-	}*/
 	fmt.Print("\033[9;5H")
 }
 
@@ -102,7 +50,6 @@ func imprimirInterfaz() {
 	fmt.Println("+--------------------------+-----------------------------------------------------------------+")
 	fmt.Println("| 1.- Envíar mensaje.      |")
 	fmt.Println("| 2.- Enviar archivo.      |")
-	fmt.Println("| 3.- Guardar chat.        |")
 	fmt.Println("| 0.- Salir.               |")
 	fmt.Println("+--------------------------+")
 	fmt.Println("| :                        |")
@@ -119,9 +66,9 @@ func menu(c net.Conn, nickname string) {
 		}
 
 	}
-	msgs := []string{}
+	var msgs []string
 	// Hilo para recibir mensajes del servidor o de otros usuarios
-	go handleMensajesNuevos(c, msgs...)
+	go handleMensajesNuevos(c, &msgs)
 	imprimirInterfaz()
 	// Ciclo para las opciones de Usuario
 	var opc int64 = 1
@@ -140,7 +87,6 @@ func menu(c net.Conn, nickname string) {
 			fmt.Print("\033[12;1HTu: ")
 			msg = leerString()
 			err = gob.NewEncoder(c).Encode(&msg)
-			opc = 20
 		case 2:
 			err := gob.NewEncoder(c).Encode(&opc)
 			if err != nil {
@@ -149,9 +95,6 @@ func menu(c net.Conn, nickname string) {
 			/*var file string
 			fmt.Print("\033[12;1H Dirección del archivo: ")
 			file = leerString()*/
-			opc = 20
-		//case 3:
-
 		case 0:
 			fmt.Println("+--------------------------+")
 			fmt.Println("| Vuelva pronto.   :B      |")
@@ -193,14 +136,14 @@ func main() {
 			continue
 		}
 		// Se verifica que el nickname no esté en uso
-		var m string
-		err = gob.NewDecoder(c).Decode(&m)
+		var msg string
+		err = gob.NewDecoder(c).Decode(&msg)
 		//
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		if m == "Error" {
+		if msg == "Error" {
 			fmt.Print("Nickname en uso, intente con uno nuevo.\n\n")
 		} else {
 			menu(c, nickname)

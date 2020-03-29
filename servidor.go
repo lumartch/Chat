@@ -9,7 +9,9 @@ import (
 	"container/list"
 	"encoding/gob"
 	"fmt"
+	"log"
 	"net"
+	"os"
 )
 
 const BUFFER_SIZE = 1024
@@ -21,6 +23,7 @@ type Usuario struct {
 
 // Inicialización de la lista
 var listaUsuarios list.List
+var msgs []string
 
 func serverArchivo() {
 
@@ -60,6 +63,7 @@ func handleMensajes(msg string) {
 			fmt.Println(err)
 		}
 	}
+	msgs = append(msgs, msg)
 }
 
 func handleUsuario(c net.Conn, nickname string) {
@@ -71,13 +75,16 @@ func handleUsuario(c net.Conn, nickname string) {
 		}
 		/// Switch para los handlers de acciones
 		switch opc {
+		// Si se captura un 1 envía un "echo" del mensaje al resto de usuarios
 		case 1:
 			var msg string
 			err = gob.NewDecoder(c).Decode(&msg)
 			fmt.Println(nickname, ":", msg)
 			handleMensajes(nickname + ": " + msg)
+		// Si se captura un 2 reenvía el archivo al resto de usuarios
 		case 2:
 			fmt.Println("Archivo")
+		// Si captura un se termina la conexión con el usuario
 		case 0:
 			fmt.Println(nickname, " se desconectó.")
 		}
@@ -135,6 +142,14 @@ func server() {
 }
 
 func main() {
+	// Crea un directorio para el servidor donde almacena todos los archivos
+	_, err := os.Stat("files")
+	if os.IsNotExist(err) {
+		errDir := os.MkdirAll("files", 0755)
+		if errDir != nil {
+			log.Fatal(err)
+		}
+	}
 	// Lanza hilo para el servidor
 	go server()
 	// Condicionante de paro
