@@ -15,8 +15,6 @@ import (
 	"os"
 )
 
-const BUFFER_SIZE = 1024
-
 type Archivo struct {
 	Nombre string
 	Datos  []byte
@@ -25,8 +23,10 @@ type Archivo struct {
 type Mensaje struct {
 	Opcion  int64
 	Mensaje string
+	File    Archivo
 }
 
+// Se envía archivo al servidor
 func enviarArchivo(c net.Conn, dirArchivo string, nickname string) {
 	// Abre el archivo si existe en el directorio
 	f, err := os.Open(dirArchivo)
@@ -34,7 +34,7 @@ func enviarArchivo(c net.Conn, dirArchivo string, nickname string) {
 		log.Fatal(err)
 		return
 	}
-	f.Close()
+	defer f.Close()
 	// Obtiene la información del archivo
 	fileStat, err := os.Stat(dirArchivo)
 	if err != nil {
@@ -62,8 +62,15 @@ func handleRespuestaServidor(c net.Conn, nickname string, msgs ...string) {
 		if msg.Opcion == 1 {
 			msgs = append(msgs, msg.Mensaje)
 			imprimirMensajes(msgs...)
+		} else {
+			fileName := msg.File.Nombre
+			err = ioutil.WriteFile(nickname+"/"+fileName, msg.File.Datos, 0644)
+			if err != nil {
+				fmt.Println("Error creating", fileName)
+				fmt.Println(err)
+				return
+			}
 		}
-
 	}
 }
 
@@ -166,8 +173,6 @@ func menu(c net.Conn, nickname string) {
 			dirArchivo = leerString()
 			enviarArchivo(c, dirArchivo, nickname)
 			opc = 20
-		//case 3:
-
 		case 0:
 			fmt.Println("+--------------------------+")
 			fmt.Println("| Vuelva pronto.   :B      |")

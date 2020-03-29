@@ -15,8 +15,6 @@ import (
 	"os"
 )
 
-const BUFFER_SIZE = 1024
-
 type Usuario struct {
 	Nickname string
 	Conexion net.Conn
@@ -30,6 +28,7 @@ type Archivo struct {
 type Mensaje struct {
 	Opcion  int64
 	Mensaje string
+	File    Archivo
 }
 
 // Inicialización de la lista
@@ -71,6 +70,20 @@ func enviarMensaje(msg string) {
 	msgs = append(msgs, msg)
 }
 
+//
+func handleArchivo(fileName string) {
+	// Crea una copia del archivo envíado dentro de la carpeta de cada usuario conectado
+	for e := lUsrMensajes.Front(); e != nil; e = e.Next() {
+		// Lee el archivo desde el origen
+		input, err := ioutil.ReadFile("files/" + fileName)
+		// Envía el mensaje a los usuarios
+		err = gob.NewEncoder(e.Value.(Usuario).Conexion).Encode(&Mensaje{Opcion: 2, File: Archivo{Nombre: fileName, Datos: input}})
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
 func handleUsuario(c net.Conn, nickname string) {
 	// Se manda la notificación a los usuarios conectados actualmente
 	enviarMensaje(nickname + " se conectó.")
@@ -105,6 +118,7 @@ func handleUsuario(c net.Conn, nickname string) {
 			}
 			fmt.Println(nickname, " envío: ", fileName)
 			enviarMensaje(nickname + " envío: " + fileName)
+			handleArchivo(fileName)
 		// Si captura un se termina la conexión con el usuario
 		case 0:
 			fmt.Println(nickname, " se desconectó.")
@@ -158,36 +172,6 @@ func server() {
 		go handleConexion(c)
 	}
 }
-
-/*func handleArchivo(fileName string) {
-	// Crea una copia del archivo envíado dentro de la carpeta de cada usuario conectado
-	for e := lUsrArchivos.Front(); e != nil; e = e.Next() {
-		// Envía la opción que debería escuchar el hilo del cliente
-		// Lee el archivo desde el origen
-		input, _ := ioutil.ReadFile("files/" + fileName)
-		err := gob.NewEncoder(e.Value.(Usuario).Conexion).Encode(&Archivo{Nombre: fileName, Datos: input})
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	}
-}
-
-func fileServer() {
-	s, err := net.Listen("tcp", "192.168.100.4:9999")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	for {
-		// Acepta el request del usuario
-		c, err := s.Accept()
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-	}
-}*/
 
 func main() {
 	// Crea un directorio para el servidor donde almacena todos los archivos
