@@ -30,7 +30,7 @@ func enviarArchivo(c net.Conn, dirArchivo string, nickname string) {
 	// Abre el archivo si existe en el directorio
 	f, err := os.Open(dirArchivo)
 	if err != nil {
-		fmt.Println("Error: No se puede abrir\nel archivo elegido.")
+		fmt.Println("\033[12;5HError: No se puede abrir\nel archivo elegido.")
 		return
 	}
 	defer f.Close()
@@ -42,13 +42,13 @@ func enviarArchivo(c net.Conn, dirArchivo string, nickname string) {
 	var opc int64 = 2
 	err = gob.NewEncoder(c).Encode(&opc)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 	}
 	// Lee el archivo desde el origen
 	input, err := ioutil.ReadFile(dirArchivo)
 	err = gob.NewEncoder(c).Encode(&Archivo{Nombre: fileStat.Name(), Datos: input})
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		return
 	}
 }
@@ -59,19 +59,19 @@ func handleRespuestaServidor(c net.Conn, nickname string, msgs ...string) {
 		var msg Mensaje
 		err := gob.NewDecoder(c).Decode(&msg)
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			continue
 		}
 		if msg.Opcion == 1 {
 			msgs = append(msgs, msg.Mensaje)
-			imprimirMensajes(msgs...)
+			imprimirMensajes(nickname, msgs...)
 		} else {
 			// Crea un directorio para el servidor donde almacena todos los archivos
 			_, err := os.Stat(nickname)
 			if os.IsNotExist(err) {
 				errDir := os.MkdirAll(nickname, 0755)
 				if errDir != nil {
-					fmt.Println(err)
+					//fmt.Println(err)
 				}
 			}
 			// Recibe el nombre del archivo
@@ -80,25 +80,18 @@ func handleRespuestaServidor(c net.Conn, nickname string, msgs ...string) {
 			err = ioutil.WriteFile(nickname+"/"+fileName, msg.File.Datos, 0644)
 			if err != nil {
 				fmt.Println("Error creating", fileName)
-				fmt.Println(err)
+				//fmt.Println(err)
 				return
 			}
 		}
 	}
 }
 
-// Limpia la ventana de chat
-func limpiarChat() {
-	for i := 0; i < 21; i++ {
-		fmt.Print("\033[", (4 + i), ";29H                                                               ")
-	}
-}
-
 // Imprime todos los mensajes dentro de la interfáz de usuario
-func imprimirMensajes(msgs ...string) {
-	limpiarChat()
-	var i int64 = 20
-	for j := 0; j < len(msgs) && j < 20; j++ {
+func imprimirMensajes(nickname string, msgs ...string) {
+	imprimirInterfaz(nickname)
+	var i int64 = 18
+	for j := 0; j < len(msgs) && j < 18; j++ {
 		if i >= 0 {
 			if len(msgs[len(msgs)-j-1]) > 60 {
 				msg := []string{}
@@ -128,7 +121,7 @@ func imprimirMensajes(msgs ...string) {
 	fmt.Print("\033[9;5H")
 }
 
-func imprimirInterfaz() {
+func imprimirInterfaz(nickname string) {
 	// System Clear
 	fmt.Print("\033[H\033[2J")
 	// Se imprime la interfaz para el usuario
@@ -142,6 +135,8 @@ func imprimirInterfaz() {
 	fmt.Println("+--------------------------+")
 	fmt.Println("| :                        |")
 	fmt.Println("+--------------------------+")
+	fmt.Print("\033[2;58H" + nickname)
+	fmt.Print("\033[12;1H")
 }
 
 func menu(c net.Conn, nickname string) {
@@ -150,45 +145,48 @@ func menu(c net.Conn, nickname string) {
 	if os.IsNotExist(err) {
 		errDir := os.MkdirAll(nickname, 0755)
 		if errDir != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 		}
 	}
 	// Se crea el historial de conversación del usuario
 	msgs := []string{}
 	// Hilo para recibir mensajes del servidor o de otros usuarios
 	go handleRespuestaServidor(c, nickname, msgs...)
-	imprimirInterfaz()
+	imprimirInterfaz(nickname)
 	// Ciclo para las opciones de Usuario
 	var opc int64 = 1
 	for opc != 0 {
-		fmt.Print("\033[9;1H| :                        |")
-		fmt.Print("\033[12;1H                            ")
+		fmt.Print(" \033[9;1H| :                        |")
+		for i := 12; i < 21; i++ {
+			fmt.Print("\033[", i, ";1H                            ")
+		}
 		fmt.Print("\033[9;5H")
 		fmt.Scanln(&opc)
 		switch opc {
 		case 1:
 			err := gob.NewEncoder(c).Encode(&opc)
 			if err != nil {
-				fmt.Println(err)
+				//fmt.Println(err)
 			}
 			var msg string
-			fmt.Print("\033[12;1HTu: ")
+			fmt.Print("\033[23;1HTu: ")
 			msg = leerString()
 			err = gob.NewEncoder(c).Encode(&msg)
 			opc = 20
 		case 2:
 			var dirArchivo string
-			fmt.Print("\033[12;1H Dirección del archivo: ")
+			fmt.Print("\033[23;1H Dirección del archivo: ")
 			dirArchivo = leerString()
 			enviarArchivo(c, dirArchivo, nickname)
 			opc = 20
 		case 0:
+			imprimirInterfaz(nickname)
 			fmt.Println("+--------------------------+")
 			fmt.Println("| Vuelva pronto.   :B      |")
 			fmt.Println("+--------------------------+")
 			err := gob.NewEncoder(c).Encode(&opc)
 			if err != nil {
-				fmt.Println(err)
+				//fmt.Println(err)
 			}
 		default:
 			opc = 20
@@ -203,23 +201,28 @@ func leerString() string {
 }
 
 func main() {
+	// System Clear
+	fmt.Print("\033[H\033[2J")
 	// Crea el bucle para envíar el Nickname del usuario
 	for {
 		var nickname string
 		// Conexión inicial entre cliente servidor
 		c, err := net.Dial("tcp", "192.168.100.4:8080")
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			return
 		}
 		// El usuario ingresa el Nickname
-		fmt.Print("Nickname: ")
+		fmt.Println("+----------------------------------------+")
+		fmt.Println("| WutsClient Login - Ingrese su nickname |")
+		fmt.Println("+----------------------------------------+")
+		fmt.Print("| Nickname: ")
 		nickname = leerString()
 		fmt.Print("Conectando con el servidor... ")
 		// Se envía el nickname
 		err = gob.NewEncoder(c).Encode(&nickname)
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			continue
 		}
 		// Se verifica que el nickname no esté en uso
@@ -227,7 +230,7 @@ func main() {
 		err = gob.NewDecoder(c).Decode(&m)
 		//
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			continue
 		}
 		if m == "Error" {

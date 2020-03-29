@@ -86,7 +86,6 @@ func handleArchivo(fileName string) {
 func handleUsuario(c net.Conn, nickname string) {
 	// Se manda la notificación a los usuarios conectados actualmente
 	enviarMensaje(nickname + " se conectó.")
-	//fmt.Println("Se conectó: ", nickname)
 	var opc int = 1
 	for opc != 0 {
 		err := gob.NewDecoder(c).Decode(&opc)
@@ -99,7 +98,6 @@ func handleUsuario(c net.Conn, nickname string) {
 		case 1:
 			var msg string
 			err = gob.NewDecoder(c).Decode(&msg)
-			//fmt.Println(nickname, ":", msg)
 			enviarMensaje(nickname + ": " + msg)
 		// Si se captura un 2 reenvía el archivo al resto de usuarios
 		case 2:
@@ -126,12 +124,10 @@ func handleUsuario(c net.Conn, nickname string) {
 			// Agrega al Slice el nombre del archivo
 			files = append(files, arc.Nombre)
 			// Manda el mensaje al resto de usuarios y archivo a los usuarios conectados.
-			//fmt.Println(nickname, " envío: ", arc.Nombre)
 			enviarMensaje(nickname + " envío: " + arc.Nombre)
 			handleArchivo(arc.Nombre)
 		// Si captura un se termina la conexión con el usuario
 		case 0:
-			//fmt.Println(nickname, " se desconectó.")
 			enviarMensaje(nickname + " se desconectó.")
 		}
 	}
