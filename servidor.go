@@ -9,6 +9,7 @@ import (
 	"container/list"
 	"encoding/gob"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -21,16 +22,23 @@ type Usuario struct {
 	Conexion net.Conn
 }
 
+type Archivo struct {
+	Nombre string
+	Datos  []byte
+}
+
 // Inicialización de la lista
 var listaUsuarios list.List
 var msgs []string
 
-func serverArchivo() {
-
-}
-
-func handleArchivo(c net.Conn) {
-
+func handleArchivo(arc Archivo) {
+	// Crea una copia del archivo envíado dentro de la carpeta de cada usuario conectado
+	for e := listaUsuarios.Front(); e != nil; e = e.Next() {
+		err := gob.NewEncoder(e.Value.(Usuario).Conexion).Encode(&arc)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
 
 // Función para corroborar que el usuario existe
@@ -83,7 +91,19 @@ func handleUsuario(c net.Conn, nickname string) {
 			handleMensajes(nickname + ": " + msg)
 		// Si se captura un 2 reenvía el archivo al resto de usuarios
 		case 2:
-			fmt.Println("Archivo")
+			var arc Archivo
+			err := gob.NewDecoder(c).Decode(&arc)
+			if err != nil {
+				fmt.Println(err)
+			}
+			err = ioutil.WriteFile("files/"+arc.Nombre, arc.Datos, 0644)
+			if err != nil {
+				fmt.Println("Error creating", arc.Nombre)
+				fmt.Println(err)
+				return
+			}
+			handleMensajes(nickname + " envío: " + arc.Nombre)
+			//handleArchivo(arc)
 		// Si captura un se termina la conexión con el usuario
 		case 0:
 			fmt.Println(nickname, " se desconectó.")

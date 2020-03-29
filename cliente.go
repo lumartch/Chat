@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"encoding/gob"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -16,8 +17,49 @@ import (
 
 const BUFFER_SIZE = 1024
 
-func enviarArchivo(fileName string) {
+type Archivo struct {
+	Nombre string
+	Datos  []byte
+}
 
+func enviarArchivo(c net.Conn, dirArchivo string, nickname string) {
+	// Abre el archivo si existe en el directorio
+	f, err := os.Open(dirArchivo)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	f.Close()
+	// Obtiene la información del archivo
+	fileStat, err := os.Stat(dirArchivo)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	// Lee el archivo desde el origen
+	input, err := ioutil.ReadFile(dirArchivo)
+	err = gob.NewEncoder(c).Encode(&Archivo{Nombre: fileStat.Name(), Datos: input})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func handleArchivosNuevos(c net.Conn, nickname string) {
+	for {
+		var arc Archivo
+		err := gob.NewDecoder(c).Decode(&arc)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		err = ioutil.WriteFile(nickname+"/"+arc.Nombre, arc.Datos, 0644)
+		if err != nil {
+			fmt.Println("Error creating", arc.Nombre)
+			fmt.Println(err)
+			continue
+		}
+	}
 }
 
 // Cada mensaje que es recibido del servidor se guarda dentro de un Slice
@@ -33,6 +75,7 @@ func handleMensajesNuevos(c net.Conn, msgs ...string) {
 	}
 }
 
+// Limpia la ventana de chat
 func limpiarChat() {
 	for i := 0; i < 21; i++ {
 		fmt.Print("\033[", (4 + i), ";29H                                                               ")
@@ -70,26 +113,6 @@ func imprimirMensajes(msgs ...string) {
 			}
 		}
 	}
-	/*for _, msg := range msgs {
-		if len(msg) > 60 {
-			var str string
-			for j, ch := range msg {
-				if (j+1)%60 == 0 {
-					fmt.Print("\033[", (4 + i), ";32H", str)
-					str = ""
-					str = str + string(ch)
-					i++
-				} else {
-					str = str + string(ch)
-				}
-			}
-			fmt.Print("\033[", (4 + i), ";32H", str)
-			i++
-		} else {
-			fmt.Print("\033[", (4 + i), ";32H", msg)
-			i++
-		}
-	}*/
 	fmt.Print("\033[9;5H")
 }
 
@@ -122,6 +145,7 @@ func menu(c net.Conn, nickname string) {
 	msgs := []string{}
 	// Hilo para recibir mensajes del servidor o de otros usuarios
 	go handleMensajesNuevos(c, msgs...)
+	//go handleArchivosNuevos(c, nickname)
 	imprimirInterfaz()
 	// Ciclo para las opciones de Usuario
 	var opc int64 = 1
@@ -146,9 +170,10 @@ func menu(c net.Conn, nickname string) {
 			if err != nil {
 				fmt.Println(err)
 			}
-			/*var file string
+			var dirArchivo string
 			fmt.Print("\033[12;1H Dirección del archivo: ")
-			file = leerString()*/
+			dirArchivo = leerString()
+			enviarArchivo(c, dirArchivo, nickname)
 			opc = 20
 		//case 3:
 
