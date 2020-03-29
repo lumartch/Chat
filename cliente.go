@@ -137,7 +137,7 @@ func imprimirInterfaz() {
 	fmt.Println("+--------------------------+-----------------------------------------------------------------+")
 	fmt.Println("| 1.- Envíar mensaje.      |")
 	fmt.Println("| 2.- Enviar archivo.      |")
-	fmt.Println("| 3.- Guardar chat.        |")
+	fmt.Println("+--------------------------+")
 	fmt.Println("| 0.- Salir.               |")
 	fmt.Println("+--------------------------+")
 	fmt.Println("| :                        |")
