@@ -19,51 +19,52 @@ func enviarArchivo(fileName string) {
 
 }
 
-func handleMensajesNuevos(c net.Conn) {
-	var i int64 = 0
+// Cada mensaje que es recibido del servidor se guarda dentro de un Slice
+func handleMensajesNuevos(c net.Conn, msgs *[]string) {
 	for {
 		var msg string
 		err := gob.NewDecoder(c).Decode(&msg)
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Print("\033[", (4 + i), ";32H", msg)
-		i += 1
-		fmt.Print("\033[9;5H")
+		*msgs = append(*msgs, msg)
+		imprimirMensajes(msgs)
 	}
 }
 
-func imprimirTodoChat(c net.Conn) {
-	var msgs []string
-	err := gob.NewDecoder(c).Decode(&msgs)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	for i, msg := range msgs {
+// Imprime todos los mensajes dentro de la interfáz de usuario
+func imprimirMensajes(msgs *[]string) {
+	for i, msg := range *msgs {
 		fmt.Print("\033[", (4 + i), ";32H", msg)
 	}
+	fmt.Print("\033[9;5H")
+}
+
+func imprimirInterfaz() {
+	// System Clear
+	fmt.Print("\033[H\033[2J")
+	// Se imprime la interfaz para el usuario
+	fmt.Println("+--------------------------+-----------------------------------------------------------------+")
+	fmt.Println("|         WutsClient       |                       Chat                                      |")
+	fmt.Println("+--------------------------+-----------------------------------------------------------------+")
+	fmt.Println("| 1.- Envíar mensaje.      |")
+	fmt.Println("| 2.- Enviar archivo.      |")
+	fmt.Println("| 0.- Salir.               |")
+	fmt.Println("+--------------------------+")
+	fmt.Println("| :                        |")
+	fmt.Println("+--------------------------+")
 }
 
 func menu(c net.Conn, nickname string) {
-	fmt.Print("\033[H\033[2J")
+	var msgs []string
 	// Hilo para recibir mensajes del servidor o de otros usuarios
-	go handleMensajesNuevos(c)
+	go handleMensajesNuevos(c, &msgs)
+	imprimirInterfaz()
 	// Ciclo para las opciones de Usuario
 	var opc int64 = 1
 	for opc != 0 {
-		// System "Clear"
-		fmt.Print("\033[H\033[2J")
-		fmt.Println("+--------------------------+-----------------------------------------------------------------+")
-		fmt.Println("|         WutsClient       |                       Chat                                      |")
-		fmt.Println("+--------------------------+-----------------------------------------------------------------+")
-		fmt.Println("| 1.- Envíar mensaje.      |")
-		fmt.Println("| 2.- Enviar archivo.      |")
-		fmt.Println("| 3.- Mostrar chat.        |")
-		fmt.Println("| 0.- Salir.               |")
-		fmt.Println("+--------------------------+")
-		fmt.Println("| :                        |")
-		fmt.Println("+--------------------------+")
+		fmt.Print("\033[9;1H| :                        |")
+		fmt.Print("\033[12;1H                            ")
 		fmt.Print("\033[9;5H")
 		fmt.Scanln(&opc)
 		switch opc {
@@ -76,7 +77,6 @@ func menu(c net.Conn, nickname string) {
 			fmt.Print("\033[12;1HTu: ")
 			msg = leerString()
 			err = gob.NewEncoder(c).Encode(&msg)
-			//imprimirTodoChat(c)
 		case 2:
 			err := gob.NewEncoder(c).Encode(&opc)
 			if err != nil {
@@ -85,12 +85,6 @@ func menu(c net.Conn, nickname string) {
 			/*var file string
 			fmt.Print("\033[12;1H Dirección del archivo: ")
 			file = leerString()*/
-		case 3:
-			fmt.Print("\033[11;1H Mensajes.")
-			err := gob.NewEncoder(c).Encode(&opc)
-			if err != nil {
-				fmt.Println(err)
-			}
 		case 0:
 			fmt.Println("+--------------------------+")
 			fmt.Println("| Vuelva pronto.   :B      |")

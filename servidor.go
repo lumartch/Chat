@@ -64,7 +64,6 @@ func handleMensajes(msg string) {
 
 func handleUsuario(c net.Conn, nickname string) {
 	var opc int = 1
-	var msgs []string
 	for opc != 0 {
 		err := gob.NewDecoder(c).Decode(&opc)
 		if err != nil {
@@ -76,13 +75,9 @@ func handleUsuario(c net.Conn, nickname string) {
 			var msg string
 			err = gob.NewDecoder(c).Decode(&msg)
 			fmt.Println(nickname, ":", msg)
-			msgs = append(msgs, nickname+": "+msg+"\n")
 			handleMensajes(nickname + ": " + msg)
-			//err = gob.NewDecoder(c).Decode(&msgs)
 		case 2:
 			fmt.Println("Archivo")
-		case 3:
-			fmt.Println("Mostrar los mensajes actuales.")
 		case 0:
 			fmt.Println(nickname, " se desconectó.")
 		}
