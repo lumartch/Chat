@@ -10,7 +10,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 )
@@ -104,21 +103,30 @@ func handleUsuario(c net.Conn, nickname string) {
 			enviarMensaje(nickname + ": " + msg)
 		// Si se captura un 2 reenvía el archivo al resto de usuarios
 		case 2:
+			// Crea un directorio para el servidor donde almacena todos los archivos
+			_, err := os.Stat("files")
+			if os.IsNotExist(err) {
+				errDir := os.MkdirAll("files", 0755)
+				if errDir != nil {
+					fmt.Println(err)
+				}
+			}
+			// Recibe el archivo por la conexión con el usuario
 			var arc Archivo
-			err := gob.NewDecoder(c).Decode(&arc)
+			err = gob.NewDecoder(c).Decode(&arc)
 			if err != nil {
 				fmt.Println(err)
 			}
-			fileName := arc.Nombre
-			err = ioutil.WriteFile("files/"+fileName, arc.Datos, 0644)
+			err = ioutil.WriteFile("files/"+arc.Nombre, arc.Datos, 0644)
 			if err != nil {
-				fmt.Println("Error creating", fileName)
+				fmt.Println("Error creating", arc.Nombre)
 				fmt.Println(err)
 				return
 			}
-			fmt.Println(nickname, " envío: ", fileName)
-			enviarMensaje(nickname + " envío: " + fileName)
-			handleArchivo(fileName)
+			// Manda el mensaje al resto de usuarios y archivo a los usuarios conectados.
+			fmt.Println(nickname, " envío: ", arc.Nombre)
+			enviarMensaje(nickname + " envío: " + arc.Nombre)
+			handleArchivo(arc.Nombre)
 		// Si captura un se termina la conexión con el usuario
 		case 0:
 			fmt.Println(nickname, " se desconectó.")
@@ -179,7 +187,7 @@ func main() {
 	if os.IsNotExist(err) {
 		errDir := os.MkdirAll("files", 0755)
 		if errDir != nil {
-			log.Fatal(err)
+			fmt.Println(err)
 		}
 	}
 	// Lanza hilo para el servidor

@@ -10,7 +10,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 )
@@ -31,15 +30,19 @@ func enviarArchivo(c net.Conn, dirArchivo string, nickname string) {
 	// Abre el archivo si existe en el directorio
 	f, err := os.Open(dirArchivo)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Error: No se puede abrir\nel archivo elegido.")
 		return
 	}
 	defer f.Close()
 	// Obtiene la información del archivo
 	fileStat, err := os.Stat(dirArchivo)
 	if err != nil {
-		log.Fatal(err)
 		return
+	}
+	var opc int64 = 2
+	err = gob.NewEncoder(c).Encode(&opc)
+	if err != nil {
+		fmt.Println(err)
 	}
 	// Lee el archivo desde el origen
 	input, err := ioutil.ReadFile(dirArchivo)
@@ -63,7 +66,17 @@ func handleRespuestaServidor(c net.Conn, nickname string, msgs ...string) {
 			msgs = append(msgs, msg.Mensaje)
 			imprimirMensajes(msgs...)
 		} else {
+			// Crea un directorio para el servidor donde almacena todos los archivos
+			_, err := os.Stat(nickname)
+			if os.IsNotExist(err) {
+				errDir := os.MkdirAll(nickname, 0755)
+				if errDir != nil {
+					fmt.Println(err)
+				}
+			}
+			// Recibe el nombre del archivo
 			fileName := msg.File.Nombre
+			// Escribe el archivo dentro del directorio
 			err = ioutil.WriteFile(nickname+"/"+fileName, msg.File.Datos, 0644)
 			if err != nil {
 				fmt.Println("Error creating", fileName)
@@ -137,7 +150,7 @@ func menu(c net.Conn, nickname string) {
 	if os.IsNotExist(err) {
 		errDir := os.MkdirAll(nickname, 0755)
 		if errDir != nil {
-			log.Fatal(err)
+			fmt.Println(err)
 		}
 	}
 	// Se crea el historial de conversación del usuario
@@ -164,10 +177,6 @@ func menu(c net.Conn, nickname string) {
 			err = gob.NewEncoder(c).Encode(&msg)
 			opc = 20
 		case 2:
-			err := gob.NewEncoder(c).Encode(&opc)
-			if err != nil {
-				fmt.Println(err)
-			}
 			var dirArchivo string
 			fmt.Print("\033[12;1H Dirección del archivo: ")
 			dirArchivo = leerString()
